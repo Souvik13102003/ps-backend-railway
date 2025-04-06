@@ -5,17 +5,28 @@ const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
-const generateBillPDF = async (billing, student) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 40 });
-  const fileName = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
-  const billsDir = path.join('public', 'bills');
-  const filePath = path.join(billsDir, fileName);
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-  if (!fs.existsSync(billsDir)) {
-    fs.mkdirSync(billsDir, { recursive: true });
-  }
+// 📄 Generate PDF Bill
+const generateBillPDF = async (billing, student) => {
+  const tempFilename = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
+  const filePath = path.join(__dirname, '..', 'temp', tempFilename);
+
+  // Ensure temp directory exists
+  const tempDir = path.join(__dirname, '..', 'temp');
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  doc.pipe(fs.createWriteStream(filePath));
 
   const festLogo = path.join(__dirname, '../public/ps-logo.png');
   const tmslLogo = path.join(__dirname, '../public/tmsl-logo.png');
@@ -23,22 +34,14 @@ const generateBillPDF = async (billing, student) => {
     ? path.join(__dirname, '../public/icons/fastfood.png')
     : path.join(__dirname, '../public/icons/nofood.png');
 
-  doc.pipe(fs.createWriteStream(filePath));
-
-  const logoHeight = 60;
-  doc.image(festLogo, 40, 40, { height: logoHeight });
+  doc.image(festLogo, 40, 40, { height: 60 });
   doc.image(tmslLogo, doc.page.width - 160, 44, { height: 40 });
 
   doc
     .font('Helvetica-Bold')
     .fontSize(20)
-    .fillColor('black')
-    .text('Phase Shift', 120, 45);
-
-  doc
-    .font('Helvetica')
+    .text('Phase Shift', 120, 45)
     .fontSize(12)
-    .fillColor('black')
     .text('Department of Electrical Engineering', 120, 70)
     .text('Techno Main Salt Lake');
 
@@ -48,11 +51,9 @@ const generateBillPDF = async (billing, student) => {
     .text(`Date: ${new Date(billing.paymentDate).toLocaleDateString()}`, 40, 120);
 
   const drawSectionHeader = (title, y) => {
-    doc
-      .fillColor('#E91E63')
+    doc.fillColor('#E91E63')
       .rect(40, y, doc.page.width - 80, 25)
-      .fill();
-    doc
+      .fill()
       .fillColor('white')
       .font('Helvetica-Bold')
       .fontSize(13)
@@ -60,16 +61,13 @@ const generateBillPDF = async (billing, student) => {
   };
 
   const drawKeyValueRow = (label, value, y) => {
-    const col1X = 50;
-    const col2X = 220;
     doc
       .fillColor('black')
       .font('Helvetica')
       .fontSize(12)
-      .text(label, col1X, y);
-    doc
+      .text(label, 50, y)
       .font('Helvetica-Bold')
-      .text(value, col2X, y);
+      .text(value, 220, y);
   };
 
   let y = 160;
@@ -90,10 +88,25 @@ const generateBillPDF = async (billing, student) => {
   doc.image(foodIcon, centerX, y, { width: iconSize });
 
   doc.end();
+
   return filePath;
 };
 
-const sendBillEmail = async (email, pdfPath) => {
+// 📤 Upload PDF to Cloudinary
+const uploadPDFToCloudinary = async (filePath) => {
+  const result = await cloudinary.uploader.upload(filePath, {
+    resource_type: 'raw',
+    folder: 'phase-shift-bills',
+    use_filename: true,
+    unique_filename: false,
+  });
+
+  fs.unlinkSync(filePath); // delete local after upload
+  return result.secure_url;
+};
+
+// 📧 Send Bill via Email
+const sendBillEmail = async (email, billURL) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -116,80 +129,69 @@ const sendBillEmail = async (email, pdfPath) => {
         <p><strong>📍 Venue:</strong> Techno Main Salt Lake Campus</p>
         <h3 style="margin-top: 25px; color: #1976D2;">🎯 Events & Registration Links</h3>
         <ul style="line-height: 1.6; padding-left: 20px;">
-          <li>Model Making: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Circuit Making: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Idea Presentation: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Debate: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Quiz: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Photography: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Gaming: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Chess: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Uno: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Treasure Hunt: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          ${[
+            'Model Making', 'Circuit Making', 'Idea Presentation', 'Debate',
+            'Quiz', 'Photography', 'Gaming', 'Chess', 'Uno', 'Treasure Hunt',
+          ].map(event => `<li>${event}: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>`).join('')}
         </ul>
-        <p style="margin-top: 20px;">📎 Your bill is attached as a PDF with this email.</p>
-        <p style="margin-top: 30px;">See you at the fest! 🚀</p>
+        <p style="margin-top: 20px;">📎 <a href="${billURL}" target="_blank">Click here to view/download your bill</a></p>
         <hr style="margin: 30px 0;" />
-        <p style="font-size: 15px;">
-          📸 Follow us on Instagram: 
-          <a href="https://www.instagram.com/_phaseshift_?igsh=MXI3dGU5ajZrdm1pYg==" target="_blank" style="color: #E91E63;">
+        <p style="font-size: 15px;">📸 Follow us on Instagram: 
+          <a href="https://www.instagram.com/_phaseshift_?igsh=MXI3dGU5ajZrdm1pYg==" style="color: #E91E63;" target="_blank">
             @_phaseshift_
           </a>
         </p>
         <p style="color: #888; font-size: 14px; margin-top: 30px;">
-          Regards,<br />
-          <strong>Phase Shift 2025 Team</strong>
+          Regards,<br /><strong>Phase Shift 2025 Team</strong>
         </p>
       </div>
-    `,
-    attachments: [{ filename: path.basename(pdfPath), path: pdfPath }],
+    `
   };
 
   await transporter.sendMail(mailOptions);
 };
 
+// 🧾 BILL CONTROLLER
 exports.billStudent = async (req, res) => {
   try {
     const { studentRollNo, paymentMode, transactionId, foodCoupon, phone, email } = req.body;
-    const screenshot = req.file ? req.file.path : '';
     const student = await Student.findOne({ universityRollNo: studentRollNo.trim() });
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
     const amount = foodCoupon === 'true' ? 300 : 150;
+
     const billing = new Billing({
       student: student._id,
       paymentMode,
       transactionId,
-      screenshot,
+      screenshot: req.file?.path || '',
       foodCoupon: foodCoupon === 'true',
       amount,
       phone,
       email,
     });
-
     await billing.save();
 
     let fund = await Fund.findOne();
-    if (!fund) {
-      fund = new Fund({ totalFund: amount });
-    } else {
-      fund.totalFund += amount;
-    }
+    fund ? (fund.totalFund += amount) : (fund = new Fund({ totalFund: amount }));
     await fund.save();
 
     const pdfPath = await generateBillPDF(billing, student);
-    billing.billFileName = path.basename(pdfPath);
+    const billURL = await uploadPDFToCloudinary(pdfPath);
+
+    billing.billFileName = billURL;
     await billing.save();
 
-    await sendBillEmail(email, pdfPath);
+    await sendBillEmail(email, billURL);
 
     res.status(201).json({ message: 'Billing successful, email sent 🎉' });
   } catch (error) {
-    console.error(error);
+    console.error('Billing error:', error);
     res.status(500).json({ message: 'Billing failed' });
   }
 };
 
+// 📊 Payment Stats
 exports.getPaymentStats = async (req, res) => {
   try {
     const totalOnline = await Billing.countDocuments({ paymentMode: 'Online' });
@@ -197,26 +199,29 @@ exports.getPaymentStats = async (req, res) => {
     const totalFoodCoupons = await Billing.countDocuments({ foodCoupon: true });
     res.json({ totalOnline, totalCash, totalFoodCoupons });
   } catch (error) {
-    console.error("Error fetching payment stats:", error);
     res.status(500).json({ message: "Failed to fetch payment stats" });
   }
 };
 
+// 📁 All Bills
 exports.getAllBills = async (req, res) => {
   try {
-    const bills = await Billing.find().populate('student', 'name universityRollNo').sort({ paymentDate: -1 });
+    const bills = await Billing.find()
+      .populate('student', 'name universityRollNo')
+      .sort({ paymentDate: -1 });
+
     const response = bills.map(bill => ({
       _id: bill._id,
       studentName: bill.student.name,
       rollNo: bill.student.universityRollNo,
       paymentMode: bill.paymentMode,
       foodCoupon: bill.foodCoupon,
-      billFileName: bill.billFileName,
+      billFileName: bill.billFileName, // now Cloudinary URL
       paymentDate: bill.paymentDate,
     }));
+
     res.status(200).json(response);
   } catch (error) {
-    console.error("Error fetching all bills:", error);
     res.status(500).json({ message: "Failed to fetch bills" });
   }
 };
