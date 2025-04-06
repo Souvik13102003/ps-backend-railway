@@ -96,9 +96,20 @@ const generateBillPDF = (billing, student) => {
 };
 
 // 📤 Upload PDF to Cloudinary
+// const uploadPDFToCloudinary = async (filePath) => {
+//   const result = await cloudinary.uploader.upload(filePath, {
+//     resource_type: 'auto',
+//     folder: 'phase-shift-bills',
+//     use_filename: true,
+//     unique_filename: false,
+//   });
+
+//   fs.unlinkSync(filePath);
+//   return result.secure_url;
+// };
 const uploadPDFToCloudinary = async (filePath) => {
   const result = await cloudinary.uploader.upload(filePath, {
-    resource_type: 'auto',
+    resource_type: 'raw',  // ⬅️ MUST use raw for PDFs!
     folder: 'phase-shift-bills',
     use_filename: true,
     unique_filename: false,
