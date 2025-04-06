@@ -12,59 +12,68 @@ require('dotenv').config();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // 📄 Generate PDF Bill
-const generateBillPDF = async (billing, student) => {
-  const fileName = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
-  const billsDir = path.join(__dirname, '..', 'temp');
+const generateBillPDF = (billing, student) => {
+  return new Promise((resolve, reject) => {
+    const fileName = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
+    const billsDir = path.join(__dirname, '..', 'temp');
 
-  if (!fs.existsSync(billsDir)) fs.mkdirSync(billsDir);
+    if (!fs.existsSync(billsDir)) fs.mkdirSync(billsDir, { recursive: true });
 
-  const filePath = path.join(billsDir, fileName);
-  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const filePath = path.join(billsDir, fileName);
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const writeStream = fs.createWriteStream(filePath);
 
-  doc.pipe(fs.createWriteStream(filePath));
+    doc.pipe(writeStream);
 
-  const festLogo = path.join(__dirname, '../public/ps-logo.png');
-  const tmslLogo = path.join(__dirname, '../public/tmsl-logo.png');
-  const foodIcon = billing.foodCoupon
-    ? path.join(__dirname, '../public/icons/fastfood.png')
-    : path.join(__dirname, '../public/icons/nofood.png');
+    const festLogo = path.join(__dirname, '../public/ps-logo.png');
+    const tmslLogo = path.join(__dirname, '../public/tmsl-logo.png');
+    const foodIcon = billing.foodCoupon
+      ? path.join(__dirname, '../public/icons/fastfood.png')
+      : path.join(__dirname, '../public/icons/nofood.png');
 
-  doc.image(festLogo, 40, 40, { height: 60 });
-  doc.image(tmslLogo, doc.page.width - 160, 44, { height: 40 });
+    doc.image(festLogo, 40, 40, { height: 60 });
+    doc.image(tmslLogo, doc.page.width - 160, 44, { height: 40 });
 
-  doc.font('Helvetica-Bold').fontSize(20).text('Phase Shift', 120, 45);
-  doc.font('Helvetica').fontSize(12).text('Department of Electrical Engineering', 120, 70).text('Techno Main Salt Lake');
-  doc.font('Helvetica-Bold').fontSize(12).text(`Date: ${new Date(billing.paymentDate).toLocaleDateString()}`, 40, 120);
+    doc.font('Helvetica-Bold').fontSize(20).text('Phase Shift', 120, 45);
+    doc.font('Helvetica').fontSize(12).text('Department of Electrical Engineering', 120, 70).text('Techno Main Salt Lake');
+    doc.font('Helvetica-Bold').fontSize(12).text(`Date: ${new Date(billing.paymentDate).toLocaleDateString()}`, 40, 120);
 
-  const drawSectionHeader = (title, y) => {
-    doc.fillColor('#E91E63').rect(40, y, doc.page.width - 80, 25).fill();
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(13).text(title, 50, y + 6);
-  };
+    const drawSectionHeader = (title, y) => {
+      doc.fillColor('#E91E63').rect(40, y, doc.page.width - 80, 25).fill();
+      doc.fillColor('white').font('Helvetica-Bold').fontSize(13).text(title, 50, y + 6);
+    };
 
-  const drawKeyValueRow = (label, value, y) => {
-    doc.fillColor('black').font('Helvetica').fontSize(12).text(label, 50, y).font('Helvetica-Bold').text(value, 220, y);
-  };
+    const drawKeyValueRow = (label, value, y) => {
+      doc.fillColor('black').font('Helvetica').fontSize(12).text(label, 50, y).font('Helvetica-Bold').text(value, 220, y);
+    };
 
-  let y = 160;
-  drawSectionHeader('Student Details', y); y += 35;
-  drawKeyValueRow('Name', student.name, y); y += 25;
-  drawKeyValueRow('University Roll No', student.universityRollNo, y); y += 25;
-  drawKeyValueRow('Year', student.year, y); y += 25;
-  drawKeyValueRow('Section', student.section, y); y += 35;
+    let y = 160;
+    drawSectionHeader('Student Details', y); y += 35;
+    drawKeyValueRow('Name', student.name, y); y += 25;
+    drawKeyValueRow('University Roll No', student.universityRollNo, y); y += 25;
+    drawKeyValueRow('Year', student.year, y); y += 25;
+    drawKeyValueRow('Section', student.section, y); y += 35;
 
-  drawSectionHeader('Payment Details', y); y += 35;
-  drawKeyValueRow('Payment Mode', billing.paymentMode, y); y += 25;
-  drawKeyValueRow('Transaction ID', billing.transactionId || 'N/A', y); y += 25;
-  drawKeyValueRow('Amount Paid', `${billing.amount} /-`, y); y += 25;
-  drawKeyValueRow('Food Coupon', billing.foodCoupon ? 'Yes' : 'No', y); y += 50;
+    drawSectionHeader('Payment Details', y); y += 35;
+    drawKeyValueRow('Payment Mode', billing.paymentMode, y); y += 25;
+    drawKeyValueRow('Transaction ID', billing.transactionId || 'N/A', y); y += 25;
+    drawKeyValueRow('Amount Paid', `${billing.amount} /-`, y); y += 25;
+    drawKeyValueRow('Food Coupon', billing.foodCoupon ? 'Yes' : 'No', y); y += 50;
 
-  const iconSize = 80;
-  const centerX = (doc.page.width - iconSize) / 2;
-  doc.image(foodIcon, centerX, y, { width: iconSize });
+    const iconSize = 80;
+    const centerX = (doc.page.width - iconSize) / 2;
+    doc.image(foodIcon, centerX, y, { width: iconSize });
 
-  doc.end();
-  return { filePath, fileName };
+    doc.end();
+
+    writeStream.on('finish', () => {
+      resolve({ filePath, fileName });
+    });
+
+    writeStream.on('error', reject);
+  });
 };
+
 
 // 📤 Upload to Supabase
 const uploadToSupabase = async (localPath, remoteFileName) => {
