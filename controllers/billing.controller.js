@@ -1,3 +1,4 @@
+// backend/controllers/billing.controller.js
 const Billing = require('../models/billing.model');
 const Fund = require('../models/fund.model');
 const Student = require('../models/student.model');
@@ -5,7 +6,6 @@ const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
@@ -17,91 +17,94 @@ cloudinary.config({
 });
 
 // 📄 Generate PDF Bill
-const generateBillPDF = async (billing, student) => {
-  const tempFilename = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
-  const filePath = path.join(__dirname, '..', 'temp', tempFilename);
+const generateBillPDF = (billing, student) => {
+  return new Promise((resolve, reject) => {
+    const tempFilename = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
+    const tempDir = path.join(__dirname, '..', 'temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
-  // Ensure temp directory exists
-  const tempDir = path.join(__dirname, '..', 'temp');
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+    const filePath = path.join(tempDir, tempFilename);
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const stream = fs.createWriteStream(filePath);
 
-  const doc = new PDFDocument({ size: 'A4', margin: 40 });
-  doc.pipe(fs.createWriteStream(filePath));
+    doc.pipe(stream);
 
-  const festLogo = path.join(__dirname, '../public/ps-logo.png');
-  const tmslLogo = path.join(__dirname, '../public/tmsl-logo.png');
-  const foodIcon = billing.foodCoupon
-    ? path.join(__dirname, '../public/icons/fastfood.png')
-    : path.join(__dirname, '../public/icons/nofood.png');
+    const festLogo = path.join(__dirname, '../public/ps-logo.png');
+    const tmslLogo = path.join(__dirname, '../public/tmsl-logo.png');
+    const foodIcon = billing.foodCoupon
+      ? path.join(__dirname, '../public/icons/fastfood.png')
+      : path.join(__dirname, '../public/icons/nofood.png');
 
-  doc.image(festLogo, 40, 40, { height: 60 });
-  doc.image(tmslLogo, doc.page.width - 160, 44, { height: 40 });
+    doc.image(festLogo, 40, 40, { height: 60 });
+    doc.image(tmslLogo, doc.page.width - 160, 44, { height: 40 });
 
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(20)
-    .text('Phase Shift', 120, 45)
-    .fontSize(12)
-    .text('Department of Electrical Engineering', 120, 70)
-    .text('Techno Main Salt Lake');
-
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(12)
-    .text(`Date: ${new Date(billing.paymentDate).toLocaleDateString()}`, 40, 120);
-
-  const drawSectionHeader = (title, y) => {
-    doc.fillColor('#E91E63')
-      .rect(40, y, doc.page.width - 80, 25)
-      .fill()
-      .fillColor('white')
-      .font('Helvetica-Bold')
-      .fontSize(13)
-      .text(title, 50, y + 6);
-  };
-
-  const drawKeyValueRow = (label, value, y) => {
     doc
-      .fillColor('black')
-      .font('Helvetica')
-      .fontSize(12)
-      .text(label, 50, y)
       .font('Helvetica-Bold')
-      .text(value, 220, y);
-  };
+      .fontSize(20)
+      .text('Phase Shift', 120, 45)
+      .fontSize(12)
+      .text('Department of Electrical Engineering', 120, 70)
+      .text('Techno Main Salt Lake');
 
-  let y = 160;
-  drawSectionHeader('Student Details', y); y += 35;
-  drawKeyValueRow('Name', student.name, y); y += 25;
-  drawKeyValueRow('University Roll No', student.universityRollNo, y); y += 25;
-  drawKeyValueRow('Year', student.year, y); y += 25;
-  drawKeyValueRow('Section', student.section, y); y += 35;
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .text(`Date: ${new Date(billing.paymentDate).toLocaleDateString()}`, 40, 120);
 
-  drawSectionHeader('Payment Details', y); y += 35;
-  drawKeyValueRow('Payment Mode', billing.paymentMode, y); y += 25;
-  drawKeyValueRow('Transaction ID', billing.transactionId || 'N/A', y); y += 25;
-  drawKeyValueRow('Amount Paid', `${billing.amount} /-`, y); y += 25;
-  drawKeyValueRow('Food Coupon', billing.foodCoupon ? 'Yes' : 'No', y); y += 50;
+    const drawSectionHeader = (title, y) => {
+      doc.fillColor('#E91E63')
+        .rect(40, y, doc.page.width - 80, 25)
+        .fill()
+        .fillColor('white')
+        .font('Helvetica-Bold')
+        .fontSize(13)
+        .text(title, 50, y + 6);
+    };
 
-  const iconSize = 80;
-  const centerX = (doc.page.width - iconSize) / 2;
-  doc.image(foodIcon, centerX, y, { width: iconSize });
+    const drawKeyValueRow = (label, value, y) => {
+      doc
+        .fillColor('black')
+        .font('Helvetica')
+        .fontSize(12)
+        .text(label, 50, y)
+        .font('Helvetica-Bold')
+        .text(value, 220, y);
+    };
 
-  doc.end();
+    let y = 160;
+    drawSectionHeader('Student Details', y); y += 35;
+    drawKeyValueRow('Name', student.name, y); y += 25;
+    drawKeyValueRow('University Roll No', student.universityRollNo, y); y += 25;
+    drawKeyValueRow('Year', student.year, y); y += 25;
+    drawKeyValueRow('Section', student.section, y); y += 35;
 
-  return filePath;
+    drawSectionHeader('Payment Details', y); y += 35;
+    drawKeyValueRow('Payment Mode', billing.paymentMode, y); y += 25;
+    drawKeyValueRow('Transaction ID', billing.transactionId || 'N/A', y); y += 25;
+    drawKeyValueRow('Amount Paid', `${billing.amount} /-`, y); y += 25;
+    drawKeyValueRow('Food Coupon', billing.foodCoupon ? 'Yes' : 'No', y); y += 50;
+
+    const iconSize = 80;
+    const centerX = (doc.page.width - iconSize) / 2;
+    doc.image(foodIcon, centerX, y, { width: iconSize });
+
+    doc.end();
+
+    stream.on('finish', () => resolve(filePath));
+    stream.on('error', (err) => reject(err));
+  });
 };
 
 // 📤 Upload PDF to Cloudinary
 const uploadPDFToCloudinary = async (filePath) => {
   const result = await cloudinary.uploader.upload(filePath, {
-    resource_type: 'auto', // Use auto to allow browser preview of PDFs
+    resource_type: 'auto',
     folder: 'phase-shift-bills',
     use_filename: true,
     unique_filename: false,
   });
 
-  fs.unlinkSync(filePath); // delete local after upload
+  fs.unlinkSync(filePath);
   return result.secure_url;
 };
 
@@ -127,23 +130,8 @@ const sendBillEmail = async (email, billURL) => {
         <strong>Department of Electrical Engineering</strong> at <strong>Techno Main Salt Lake</strong>.</p>
         <p><strong>🗓 Dates:</strong> 25th - 26th April 2025</p>
         <p><strong>📍 Venue:</strong> Techno Main Salt Lake Campus</p>
-        <h3 style="margin-top: 25px; color: #1976D2;">🎯 Events & Registration Links</h3>
-        <ul style="line-height: 1.6; padding-left: 20px;">
-          ${[
-            'Model Making', 'Circuit Making', 'Idea Presentation', 'Debate',
-            'Quiz', 'Photography', 'Gaming', 'Chess', 'Uno', 'Treasure Hunt',
-          ].map(event => `<li>${event}: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>`).join('')}
-        </ul>
         <p style="margin-top: 20px;">📎 <a href="${billURL}" target="_blank">Click here to view/download your bill</a></p>
-        <hr style="margin: 30px 0;" />
-        <p style="font-size: 15px;">📸 Follow us on Instagram: 
-          <a href="https://www.instagram.com/_phaseshift_?igsh=MXI3dGU5ajZrdm1pYg==" style="color: #E91E63;" target="_blank">
-            @_phaseshift_
-          </a>
-        </p>
-        <p style="color: #888; font-size: 14px; margin-top: 30px;">
-          Regards,<br /><strong>Phase Shift 2025 Team</strong>
-        </p>
+        <p style="color: #888; font-size: 14px; margin-top: 30px;">Regards,<br /><strong>Phase Shift 2025 Team</strong></p>
       </div>
     `
   };
@@ -216,7 +204,7 @@ exports.getAllBills = async (req, res) => {
       rollNo: bill.student.universityRollNo,
       paymentMode: bill.paymentMode,
       foodCoupon: bill.foodCoupon,
-      billFileName: bill.billFileName, // now Cloudinary URL
+      billFileName: bill.billFileName,
       paymentDate: bill.paymentDate,
     }));
 
