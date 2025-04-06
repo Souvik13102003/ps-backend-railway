@@ -105,7 +105,7 @@ const sendBillEmail = async (email, pdfURL) => {
     from: '"Phase Shift Billing" <yourgmail@gmail.com>',
     to: email,
     subject: '🎉 Your Bill for Phase Shift 2025',
-    html: 
+    html: `
       <div style="font-family: 'Segoe UI', sans-serif; color: #333; padding: 20px;">
         <h2 style="color: #E91E63;">Phase Shift 2025 - Registration Confirmed</h2>
         <p>Thank you for registering for the <strong>Phase Shift</strong> fest organized by the 
@@ -114,7 +114,7 @@ const sendBillEmail = async (email, pdfURL) => {
         <p><strong>📍 Venue:</strong> Techno Main Salt Lake</p>
         <p>📎 <a href="${pdfURL}" target="_blank">Click here to view/download your bill</a></p>
         <p>🚀 See you at the fest!</p>
-      </div>
+      </div>`
     ,
   };
 
