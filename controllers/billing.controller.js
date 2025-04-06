@@ -25,26 +25,39 @@ const generateBillPDF = (billing, student) => {
 
     doc.pipe(writeStream);
 
-    const festLogo = path.join(__dirname, '../public/ps-logo.png');
     const tmslLogo = path.join(__dirname, '../public/tmsl-logo.png');
     const foodIcon = billing.foodCoupon
       ? path.join(__dirname, '../public/icons/fastfood.png')
       : path.join(__dirname, '../public/icons/nofood.png');
 
-    doc.image(festLogo, 40, 40, { height: 60 });
+    // ✅ Watermark
+    const watermarkText = `${student.name} - ${student.universityRollNo}`;
+    doc.fontSize(60)
+      .fillColor('gray')
+      .opacity(0.1)
+      .rotate(-30, { origin: [300, 400] })
+      .text(watermarkText, 100, 300, { align: 'center' })
+      .rotate(30, { origin: [300, 400] }) // reset rotation
+      .opacity(1); // reset opacity
+
+    // ✅ Top Right Logo (TMSL only)
     doc.image(tmslLogo, doc.page.width - 160, 44, { height: 40 });
 
-    doc.font('Helvetica-Bold').fontSize(20).text('Phase Shift', 120, 45);
+    // ✅ Header
+    doc.font('Helvetica-Bold').fontSize(20).fillColor('black').text('Phase Shift', 120, 45);
     doc.font('Helvetica').fontSize(12).text('Department of Electrical Engineering', 120, 70).text('Techno Main Salt Lake');
+
     doc.font('Helvetica-Bold').fontSize(12).text(`Date: ${new Date(billing.paymentDate).toLocaleDateString()}`, 40, 120);
 
+    // ✅ Reusable functions
     const drawSectionHeader = (title, y) => {
       doc.fillColor('#E91E63').rect(40, y, doc.page.width - 80, 25).fill();
       doc.fillColor('white').font('Helvetica-Bold').fontSize(13).text(title, 50, y + 6);
     };
 
     const drawKeyValueRow = (label, value, y) => {
-      doc.fillColor('black').font('Helvetica').fontSize(12).text(label, 50, y).font('Helvetica-Bold').text(value, 220, y);
+      doc.fillColor('black').font('Helvetica').fontSize(12).text(label, 50, y);
+      doc.font('Helvetica-Bold').text(value, 220, y);
     };
 
     let y = 160;
@@ -58,9 +71,12 @@ const generateBillPDF = (billing, student) => {
     drawKeyValueRow('Payment Mode', billing.paymentMode, y); y += 25;
     drawKeyValueRow('Transaction ID', billing.transactionId || 'N/A', y); y += 25;
     drawKeyValueRow('Amount Paid', `${billing.amount} /-`, y); y += 25;
-    drawKeyValueRow('Food Coupon', billing.foodCoupon ? 'Yes' : 'No', y); y += 50;
 
-    const iconSize = 80;
+    const foodStatus = billing.foodCoupon ? 'Yes ✓' : 'No ✗';
+    drawKeyValueRow('Food Coupon', foodStatus, y); y += 50;
+
+    // ✅ Bigger Icon
+    const iconSize = 130;
     const centerX = (doc.page.width - iconSize) / 2;
     doc.image(foodIcon, centerX, y, { width: iconSize });
 
@@ -73,6 +89,7 @@ const generateBillPDF = (billing, student) => {
     writeStream.on('error', reject);
   });
 };
+
 
 
 // 📤 Upload to Supabase
