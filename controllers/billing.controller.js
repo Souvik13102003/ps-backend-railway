@@ -105,7 +105,7 @@ const sendBillEmail = async (email, pdfURL) => {
     from: '"Phase Shift Billing" <yourgmail@gmail.com>',
     to: email,
     subject: '🎉 Your Bill for Phase Shift 2025',
-    html: `
+    html: 
       <div style="font-family: 'Segoe UI', sans-serif; color: #333; padding: 20px;">
         <h2 style="color: #E91E63;">Phase Shift 2025 - Registration Confirmed</h2>
         <p>Thank you for registering for the <strong>Phase Shift</strong> fest organized by the 
@@ -115,7 +115,7 @@ const sendBillEmail = async (email, pdfURL) => {
         <p>📎 <a href="${pdfURL}" target="_blank">Click here to view/download your bill</a></p>
         <p>🚀 See you at the fest!</p>
       </div>
-    `,
+    ,
   };
 
   await transporter.sendMail(mailOptions);
@@ -141,16 +141,17 @@ exports.billStudent = async (req, res) => {
       email,
     });
 
-    const { filePath, fileName } = await generateBillPDF(billing, student);
-    const pdfURL = await uploadToSupabase(filePath, fileName);
-    
-    billing.billFileName = pdfURL;
-    
-    await billing.save(); // 👈 Save only when all data is ready
-    
+    await billing.save();
+
     let fund = await Fund.findOne();
     fund ? (fund.totalFund += amount) : (fund = new Fund({ totalFund: amount }));
     await fund.save();
+
+    const { filePath, fileName } = await generateBillPDF(billing, student);
+    const pdfURL = await uploadToSupabase(filePath, fileName);
+
+    billing.billFileName = pdfURL;
+    await billing.save();
 
     await sendBillEmail(email, pdfURL);
     res.status(201).json({ message: 'Billing successful, email sent 🎉' });
