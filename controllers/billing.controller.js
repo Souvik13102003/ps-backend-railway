@@ -13,7 +13,6 @@ require('dotenv').config();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // 📄 Generate PDF Bill
-// 📄 Generate PDF Bill
 const generateBillPDF = (billing, student) => {
   return new Promise((resolve, reject) => {
     const fileName = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
@@ -46,19 +45,19 @@ const generateBillPDF = (billing, student) => {
       ? path.join(__dirname, '../public/icons/fastfood.png')
       : path.join(__dirname, '../public/icons/nofood.png');
 
-    doc.image(tmslLogo, doc.page.width - 160, 44, { height: 40 });
+    doc.image(tmslLogo, doc.page.width - 180, 44, { height: 40 });
 
     doc
       .font('Helvetica-Bold')
       .fontSize(20)
       .fillColor('black')
-      .text('Phase Shift', 120, 45);
+      .text('Phase Shift', 40, 45);
 
     doc
       .font('Helvetica')
       .fontSize(12)
       .fillColor('black')
-      .text('Department of Electrical Engineering', 120, 70)
+      .text('Department of Electrical Engineering', 40, 70)
       .text('Techno Main Salt Lake');
 
     doc
@@ -99,7 +98,7 @@ const generateBillPDF = (billing, student) => {
     drawKeyValueRow('Transaction ID', billing.transactionId || 'N/A', y); y += 25;
     drawKeyValueRow('Amount Paid', `${billing.amount} /-`, y); y += 25;
 
-    const foodStatus = billing.foodCoupon ? 'Yes ✅' : 'No ❌';
+    const foodStatus = billing.foodCoupon ? 'Yes' : 'No';
     drawKeyValueRow('Food Coupon', foodStatus, y); y += 50;
 
     const iconSize = 120;
