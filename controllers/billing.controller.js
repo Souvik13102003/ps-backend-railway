@@ -1,125 +1,89 @@
-// backend/controllers/billing.controller.js
 const Billing = require('../models/billing.model');
 const Fund = require('../models/fund.model');
 const Student = require('../models/student.model');
+const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
-const cloudinary = require('cloudinary').v2;
-const nodeHtmlToImage = require('node-html-to-image');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-// Cloudinary Configuration
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Supabase Setup
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-// Generate Bill as PNG
-const generateBillImage = async (billing, student) => {
-  const fileName = `bill-${student.universityRollNo}-${Date.now()}.png`;
-  const filePath = path.join(__dirname, '..', 'temp', fileName);
+// 📄 Generate PDF Bill
+const generateBillPDF = async (billing, student) => {
+  const fileName = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
+  const billsDir = path.join(__dirname, '..', 'temp');
 
-  if (!fs.existsSync(path.join(__dirname, '..', 'temp'))) {
-    fs.mkdirSync(path.join(__dirname, '..', 'temp'));
-  }
+  if (!fs.existsSync(billsDir)) fs.mkdirSync(billsDir);
 
-  const foodIconURL = billing.foodCoupon
-    ? 'https://cdn-icons-png.flaticon.com/512/3595/3595455.png' // food icon
-    : 'https://cdn-icons-png.flaticon.com/512/3595/3595412.png'; // no food
+  const filePath = path.join(billsDir, fileName);
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
 
-  await nodeHtmlToImage({
-    output: filePath,
-    type: 'png',
-    quality: 100,
-    html: `
-      <html>
-        <head>
-          <style>
-            body {
-              font-family: 'Segoe UI', sans-serif;
-              padding: 30px;
-              border: 1px solid #ddd;
-              width: 800px;
-              background: #fff;
-            }
-            h1 {
-              text-align: center;
-              color: #E91E63;
-              margin-bottom: 0;
-            }
-            h3 {
-              text-align: center;
-              margin-top: 5px;
-              color: #555;
-            }
-            .info-section {
-              margin-top: 30px;
-              border-top: 2px solid #eee;
-              padding-top: 20px;
-            }
-            .row {
-              margin: 10px 0;
-              font-size: 16px;
-            }
-            .row strong {
-              width: 160px;
-              display: inline-block;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 40px;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Phase Shift 2025</h1>
-          <h3>Department of Electrical Engineering</h3>
-          <h3>Techno Main Salt Lake</h3>
+  doc.pipe(fs.createWriteStream(filePath));
 
-          <div class="info-section">
-            <h2>Student Details</h2>
-            <div class="row"><strong>Name:</strong> ${student.name}</div>
-            <div class="row"><strong>University Roll No:</strong> ${student.universityRollNo}</div>
-            <div class="row"><strong>Year:</strong> ${student.year}</div>
-            <div class="row"><strong>Section:</strong> ${student.section}</div>
-          </div>
+  const festLogo = path.join(__dirname, '../public/ps-logo.png');
+  const tmslLogo = path.join(__dirname, '../public/tmsl-logo.png');
+  const foodIcon = billing.foodCoupon
+    ? path.join(__dirname, '../public/icons/fastfood.png')
+    : path.join(__dirname, '../public/icons/nofood.png');
 
-          <div class="info-section">
-            <h2>Payment Details</h2>
-            <div class="row"><strong>Payment Mode:</strong> ${billing.paymentMode}</div>
-            <div class="row"><strong>Transaction ID:</strong> ${billing.transactionId || 'N/A'}</div>
-            <div class="row"><strong>Amount Paid:</strong> ₹${billing.amount}</div>
-            <div class="row"><strong>Food Coupon:</strong> ${billing.foodCoupon ? 'Yes' : 'No'}</div>
-          </div>
+  doc.image(festLogo, 40, 40, { height: 60 });
+  doc.image(tmslLogo, doc.page.width - 160, 44, { height: 40 });
 
-          <div class="footer">
-            <img src="${foodIconURL}" height="100" alt="Food Icon"/>
-          </div>
-        </body>
-      </html>
-    `,
-    puppeteerArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  doc.font('Helvetica-Bold').fontSize(20).text('Phase Shift', 120, 45);
+  doc.font('Helvetica').fontSize(12).text('Department of Electrical Engineering', 120, 70).text('Techno Main Salt Lake');
+  doc.font('Helvetica-Bold').fontSize(12).text(`Date: ${new Date(billing.paymentDate).toLocaleDateString()}`, 40, 120);
 
-  return filePath;
+  const drawSectionHeader = (title, y) => {
+    doc.fillColor('#E91E63').rect(40, y, doc.page.width - 80, 25).fill();
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(13).text(title, 50, y + 6);
+  };
+
+  const drawKeyValueRow = (label, value, y) => {
+    doc.fillColor('black').font('Helvetica').fontSize(12).text(label, 50, y).font('Helvetica-Bold').text(value, 220, y);
+  };
+
+  let y = 160;
+  drawSectionHeader('Student Details', y); y += 35;
+  drawKeyValueRow('Name', student.name, y); y += 25;
+  drawKeyValueRow('University Roll No', student.universityRollNo, y); y += 25;
+  drawKeyValueRow('Year', student.year, y); y += 25;
+  drawKeyValueRow('Section', student.section, y); y += 35;
+
+  drawSectionHeader('Payment Details', y); y += 35;
+  drawKeyValueRow('Payment Mode', billing.paymentMode, y); y += 25;
+  drawKeyValueRow('Transaction ID', billing.transactionId || 'N/A', y); y += 25;
+  drawKeyValueRow('Amount Paid', `${billing.amount} /-`, y); y += 25;
+  drawKeyValueRow('Food Coupon', billing.foodCoupon ? 'Yes' : 'No', y); y += 50;
+
+  const iconSize = 80;
+  const centerX = (doc.page.width - iconSize) / 2;
+  doc.image(foodIcon, centerX, y, { width: iconSize });
+
+  doc.end();
+  return { filePath, fileName };
 };
 
-// Upload Image to Cloudinary
-const uploadImageToCloudinary = async (filePath) => {
-  const result = await cloudinary.uploader.upload(filePath, {
-    folder: 'phase-shift-bills',
-    use_filename: true,
-    unique_filename: false,
+// 📤 Upload to Supabase
+const uploadToSupabase = async (localPath, remoteFileName) => {
+  const fileBuffer = fs.readFileSync(localPath);
+
+  const { data, error } = await supabase.storage.from('bills').upload(remoteFileName, fileBuffer, {
+    contentType: 'application/pdf',
+    upsert: true,
   });
 
-  fs.unlinkSync(filePath); // clean up
-  return result.secure_url;
+  fs.unlinkSync(localPath); // cleanup local file
+  if (error) throw new Error('Failed to upload to Supabase Storage');
+
+  const publicUrl = `${process.env.SUPABASE_PUBLIC_URL}/${process.env.SUPABASE_BUCKET}/${remoteFileName}`;
+  return publicUrl;
 };
 
-// Send Bill Email
-const sendBillEmail = async (email, billURL) => {
+// 📧 Email
+const sendBillEmail = async (email, pdfURL) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -135,17 +99,12 @@ const sendBillEmail = async (email, billURL) => {
     html: `
       <div style="font-family: 'Segoe UI', sans-serif; color: #333; padding: 20px;">
         <h2 style="color: #E91E63;">Phase Shift 2025 - Registration Confirmed</h2>
-        <p>Dear Student,</p>
         <p>Thank you for registering for the <strong>Phase Shift</strong> fest organized by the 
         <strong>Department of Electrical Engineering</strong> at <strong>Techno Main Salt Lake</strong>.</p>
-
-        <p>📅 <strong>Dates:</strong> 25th - 26th April 2025</p>
-        <p>📍 <strong>Venue:</strong> Techno Main Salt Lake</p>
-
-        <p>📎 <a href="${billURL}" target="_blank">Click here to view/download your bill</a></p>
-
-        <p style="margin-top: 30px;">See you at the fest! 🚀</p>
-        <p style="color: #888;">Regards, <br/><strong>Phase Shift 2025 Team</strong></p>
+        <p><strong>🗓 Dates:</strong> 25th - 26th April 2025</p>
+        <p><strong>📍 Venue:</strong> Techno Main Salt Lake</p>
+        <p>📎 <a href="${pdfURL}" target="_blank">Click here to view/download your bill</a></p>
+        <p>🚀 See you at the fest!</p>
       </div>
     `,
   };
@@ -153,39 +112,39 @@ const sendBillEmail = async (email, billURL) => {
   await transporter.sendMail(mailOptions);
 };
 
-// Controller: Bill a Student
+// 📌 Bill Controller
 exports.billStudent = async (req, res) => {
   try {
     const { studentRollNo, paymentMode, transactionId, foodCoupon, phone, email } = req.body;
+    const screenshot = req.file ? req.file.path : '';
     const student = await Student.findOne({ universityRollNo: studentRollNo.trim() });
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
     const amount = foodCoupon === 'true' ? 300 : 150;
-
     const billing = new Billing({
       student: student._id,
       paymentMode,
       transactionId,
-      screenshot: req.file?.path || '',
+      screenshot,
       foodCoupon: foodCoupon === 'true',
       amount,
       phone,
       email,
     });
+
     await billing.save();
 
     let fund = await Fund.findOne();
     fund ? (fund.totalFund += amount) : (fund = new Fund({ totalFund: amount }));
     await fund.save();
 
-    const billImagePath = await generateBillImage(billing, student);
-    const billURL = await uploadImageToCloudinary(billImagePath);
+    const { filePath, fileName } = await generateBillPDF(billing, student);
+    const pdfURL = await uploadToSupabase(filePath, fileName);
 
-    billing.billFileName = billURL;
+    billing.billFileName = pdfURL;
     await billing.save();
 
-    await sendBillEmail(email, billURL);
-
+    await sendBillEmail(email, pdfURL);
     res.status(201).json({ message: 'Billing successful, email sent 🎉' });
   } catch (error) {
     console.error('Billing error:', error);
@@ -193,7 +152,7 @@ exports.billStudent = async (req, res) => {
   }
 };
 
-// Get Stats
+// 📊 Stats
 exports.getPaymentStats = async (req, res) => {
   try {
     const totalOnline = await Billing.countDocuments({ paymentMode: 'Online' });
@@ -205,7 +164,7 @@ exports.getPaymentStats = async (req, res) => {
   }
 };
 
-// Get All Bills
+// 📁 All Bills
 exports.getAllBills = async (req, res) => {
   try {
     const bills = await Billing.find()
