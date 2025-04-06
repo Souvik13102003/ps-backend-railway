@@ -95,7 +95,7 @@ const generateBillPDF = async (billing, student) => {
 // 📤 Upload PDF to Cloudinary
 const uploadPDFToCloudinary = async (filePath) => {
   const result = await cloudinary.uploader.upload(filePath, {
-    resource_type: 'raw',
+    resource_type: 'auto', // Use auto to allow browser preview of PDFs
     folder: 'phase-shift-bills',
     use_filename: true,
     unique_filename: false,
