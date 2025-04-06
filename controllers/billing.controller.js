@@ -108,13 +108,43 @@ const sendBillEmail = async (email, pdfURL) => {
     html: `
       <div style="font-family: 'Segoe UI', sans-serif; color: #333; padding: 20px;">
         <h2 style="color: #E91E63;">Phase Shift 2025 - Registration Confirmed</h2>
-        <p>Thank you for registering for the <strong>Phase Shift</strong> fest organized by the 
+        <p>Thank you for registering for the <strong>Phase Shift</strong> organized by the 
         <strong>Department of Electrical Engineering</strong> at <strong>Techno Main Salt Lake</strong>.</p>
-        <p><strong>🗓 Dates:</strong> 25th - 26th April 2025</p>
-        <p><strong>📍 Venue:</strong> Techno Main Salt Lake</p>
-        <p>📎 <a href="${pdfURL}" target="_blank">Click here to view/download your bill</a></p>
+        
+        <p>📎 <a href="${pdfURL}" target="_blank">Click here to download your bill</a></p>
         <p>🚀 See you at the fest!</p>
-      </div>`
+      
+      
+      
+        <h3 style="margin-top: 25px; color: #1976D2;">🎯 Events & Registration Links</h3>
+        <ul style="line-height: 1.6; padding-left: 20px;">
+          <li>Model Making: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Circuit Making: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Idea Presentation: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Debate: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Quiz: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Photography: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Gaming: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Chess: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Uno: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+          <li>Treasure Hunt: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
+        </ul>
+        
+        
+        <hr style="margin: 30px 0;" />
+        <p style="font-size: 15px;">
+          📸 Follow us on Instagram: 
+          <a href="https://www.instagram.com/_phaseshift_?igsh=MXI3dGU5ajZrdm1pYg==" target="_blank" style="color: #E91E63;">
+            @_phaseshift_
+          </a>
+        </p>
+        <p style="color: #888; font-size: 14px; margin-top: 30px;">
+          Regards,<br />
+          <strong>Phase Shift 2025 Team</strong>
+        </p>
+      </div>
+      
+      `
     ,
   };
 
