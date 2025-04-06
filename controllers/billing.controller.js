@@ -100,6 +100,7 @@ const generateBillImage = async (billing, student) => {
         </body>
       </html>
     `,
+    puppeteerArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
   return filePath;
