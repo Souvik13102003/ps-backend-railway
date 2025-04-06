@@ -141,17 +141,16 @@ exports.billStudent = async (req, res) => {
       email,
     });
 
-    await billing.save();
-
+    const { filePath, fileName } = await generateBillPDF(billing, student);
+    const pdfURL = await uploadToSupabase(filePath, fileName);
+    
+    billing.billFileName = pdfURL;
+    
+    await billing.save(); // 👈 Save only when all data is ready
+    
     let fund = await Fund.findOne();
     fund ? (fund.totalFund += amount) : (fund = new Fund({ totalFund: amount }));
     await fund.save();
-
-    const { filePath, fileName } = await generateBillPDF(billing, student);
-    const pdfURL = await uploadToSupabase(filePath, fileName);
-
-    billing.billFileName = pdfURL;
-    await billing.save();
 
     await sendBillEmail(email, pdfURL);
     res.status(201).json({ message: 'Billing successful, email sent 🎉' });
