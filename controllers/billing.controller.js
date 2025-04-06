@@ -13,6 +13,7 @@ require('dotenv').config();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // 📄 Generate PDF Bill
+// 📄 Generate PDF Bill
 const generateBillPDF = (billing, student) => {
   return new Promise((resolve, reject) => {
     const fileName = `bill-${student.universityRollNo}-${Date.now()}.pdf`;
@@ -27,16 +28,18 @@ const generateBillPDF = (billing, student) => {
     doc.pipe(writeStream);
 
     // ✅ Watermark
+    const watermarkText = billing.foodCoupon
+      ? `${student.name}\n${student.universityRollNo}\nFOOD`
+      : `${student.name}\n${student.universityRollNo}`;
+
     doc.save();
     doc.rotate(45, { origin: [300, 400] });
     doc.font('Helvetica-Bold')
       .fontSize(60)
       .fillColor('lightgray')
       .opacity(0.3)
-      .text(`${student.name}\n${student.universityRollNo}`, 100, 300, {
-        align: 'center',
-      });
-    doc.restore(); // Reset rotation & opacity
+      .text(watermarkText, 100, 300, { align: 'center' });
+    doc.restore();
 
     const tmslLogo = path.join(__dirname, '../public/tmsl-logo.png');
     const foodIcon = billing.foodCoupon
@@ -96,11 +99,9 @@ const generateBillPDF = (billing, student) => {
     drawKeyValueRow('Transaction ID', billing.transactionId || 'N/A', y); y += 25;
     drawKeyValueRow('Amount Paid', `${billing.amount} /-`, y); y += 25;
 
-    // ✅ Food Coupon row with emoji
     const foodStatus = billing.foodCoupon ? 'Yes ✅' : 'No ❌';
     drawKeyValueRow('Food Coupon', foodStatus, y); y += 50;
 
-    // ✅ Bigger food icon
     const iconSize = 120;
     const centerX = (doc.page.width - iconSize) / 2;
     doc.image(foodIcon, centerX, y, { width: iconSize });
@@ -114,6 +115,7 @@ const generateBillPDF = (billing, student) => {
     writeStream.on('error', reject);
   });
 };
+
 
 
 
