@@ -157,22 +157,6 @@ const sendBillEmail = async (email, pdfURL) => {
         <p>📎 <a href="${pdfURL}" target="_blank">Click here to download your bill</a></p>
         <p>🚀 See you at the fest!</p>
       
-      
-      
-        <h3 style="margin-top: 25px; color: #1976D2;">🎯 Events & Registration Links</h3>
-        <ul style="line-height: 1.6; padding-left: 20px;">
-          <li>Model Making: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Circuit Making: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Idea Presentation: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Debate: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Quiz: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Photography: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Gaming: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Chess: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Uno: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-          <li>Treasure Hunt: <a href="https://forms.gle/XyZ123AbcDEfGh789">Register</a></li>
-        </ul>
-        
         
         <hr style="margin: 30px 0;" />
         <p style="font-size: 15px;">
